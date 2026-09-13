@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoApply | Autonomous Job Application Agent</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #238636;
+      --accent-hover: #2ea043;
+      --blue: #58a6ff;
+      --blue-hover: #1f6feb;
+      --purple: #8957e5;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --heading: #f0f6fc;
+      --danger: #f85149;
+      --warning: #d29922;
+      --success: #3fb950;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-title h1 {
+      color: var(--heading);
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .badge.claude { background: #3b284c; color: #d2a8ff; border-color: #6e40c9; }
+    .badge.sqlite { background: #132d4b; color: #79c0ff; border-color: #1f6feb; }
+    .badge.playwright { background: #26382b; color: #7ee787; border-color: #238636; }
+    .badge.steel { background: #3b2326; color: #ff7b72; border-color: #da3633; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--heading);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--heading);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    textarea,
+    select {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      color: var(--heading);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--blue);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: rgba(240, 246, 252, 0.1);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-blue {
+      background: var(--blue-hover);
+      color: #ffffff;
+    }
+    .btn-blue:hover {
+      background: #388bfd;
+    }
+
+    .btn-secondary {
+      background: #21262d;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover {
+      background: #30363d;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #ffffff;
+      border-color: rgba(240, 246, 252, 0.1);
+    }
+    .btn-danger:hover {
+      background: #f85149;
+    }
+
+    /* Resume Upload Zone */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(13, 17, 23, 0.4);
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--blue);
+      background: rgba(88, 166, 255, 0.05);
+    }
+    .dropzone-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .file-status {
+      font-size: 13px;
+      color: var(--success);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    /* Live Launcher Area */
+    .launcher-box {
+      background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-idle { background: #21262d; color: var(--text-muted); }
+    .status-running { background: #1f6feb; color: #ffffff; animation: pulse 2s infinite; }
+    .status-waiting_for_human { background: #d29922; color: #000; animation: blink 1s infinite; }
+    .status-completed { background: #238636; color: #ffffff; }
+    .status-error { background: #da3633; color: #ffffff; }
+    .status-interrupted, .status-interrupt { background: #d29922; color: #ffffff; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Interactive HITL Modal / Box */
+    .hitl-alert {
+      background: #2a1f13;
+      border: 1px solid var(--warning);
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hitl-alert h4 {
+      color: #e3b341;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Terminal Console Logs */
+    .terminal {
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12px;
+      height: 250px;
+      overflow-y: auto;
+      color: #56d364;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .terminal-line {
+      word-break: break-all;
+    }
+
+    /* Steel Live View Card */
+    .live-view-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .live-view-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #238636;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Q&A Memory Card Styles */
+    .qa-card {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .qa-card:hover {
+      border-color: #388bfd;
+    }
+    .qa-card.editing {
+      border-color: var(--blue);
+      background: #161b22;
+    }
+    .qa-btn {
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .qa-answer-box {
+      color: #79c0ff;
+      line-height: 1.4;
+      background: rgba(56, 139, 253, 0.08);
+      padding: 6px 10px;
+      border-radius: 4px;
+      border-left: 3px solid #1f6feb;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-title">
+        <h1>🚀 AutoApply</h1>
+        <div class="badges">
+          <span id="badgeModel" class="badge claude">Claude</span>
+          <span class="badge sqlite">SQLite Memory</span>
+          <span class="badge playwright">Playwright MCP</span>
+          <span class="badge steel">Steel.dev Cloud</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span id="agentStatusBadge" class="status-badge status-idle">Status: Idle</span>
+        <button id="btnHeaderInterrupt" type="button" class="btn btn-danger" style="display: none; padding: 4px 10px; font-size: 11px;" onclick="interruptAgent()">⏹️ Interrupt</button>
+      </div>
+    </header>
+
+    <!-- Top Action Card: Job Application URL Launcher -->
+    <div class="card launcher-box">
+      <div class="card-title">
+        <span>🎯 Target Job Application</span>
+        <span id="statusNote" style="font-size: 13px; color: var(--text-muted);">Ready</span>
+      </div>
+
+      <div class="form-row" style="grid-template-columns: 2.5fr 1fr auto;">
+        <div class="form-group">
+          <label for="jobUrl">Job Application URL (Ashby, Greenhouse, Lever, etc.)</label>
+          <input 
+            type="text" 
+            id="jobUrl" 
+            placeholder="https://jobs.ashbyhq.com/company/job-id/application" 
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="execMode">Execution Mode</label>
+          <select id="execMode">
+            <option value="steel" selected>Steel.dev Cloud Browser (Remote)</option>
+            <option value="local-headed">Local Browser (Headed - Watch live)</option>
+            <option value="local-headless">Local Browser (Headless)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="justify-content: flex-end;">
+          <button id="btnLaunch" class="btn btn-primary" onclick="launchAgent()">
+            ▶️ Launch AutoApply
+          </button>
+        </div>
+      </div>
+
+      <!-- Human In The Loop Pending Question Box -->
+      <div id="hitlBox" class="hitl-alert" style="display: none;">
+        <h4 id="hitlTitle">🚨 [Human Action Required] Novel Question Encountered</h4>
+        <p id="hitlQuestion" style="font-size: 14px; font-weight: 600; color: #f0f6fc;"></p>
+        <p id="hitlContext" style="font-size: 12px; color: #8b949e;"></p>
+
+        <!-- Quick Turn Extension Choices -->
+        <div id="hitlQuickChoices" style="display: none; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" onclick="sendHitlQuickAnswer('10')">➕ Continue +10 Turns</button>
+          <button type="button" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" onclick="sendHitlQuickAnswer('20')">➕ Continue +20 Turns</button>
+          <button type="button" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="sendHitlQuickAnswer('no')">⏹️ Stop Here</button>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="hitlAnswer" placeholder="Type your answer here..." style="flex: 1;" />
+          <button type="button" class="btn btn-blue" onclick="submitHitlAnswer()">Submit Answer</button>
+          <button type="button" class="btn btn-secondary" onclick="interruptAgent()">Interrupt</button>
+        </div>
+      </div>
+
+      <!-- Steel Live View Preview -->
+      <div id="steelLiveViewBox" style="display: none; padding: 10px 0;">
+        <a id="steelLiveLink" href="#" target="_blank" class="live-view-link">
+          🖥️ Open Steel.dev Live Session Viewer (Watch cloud browser in real time) ↗
+        </a>
+      </div>
+
+      <!-- Terminal Logs -->
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="color: var(--text-muted);">Real-time Execution Logs</label>
+          <span style="font-size: 11px; cursor: pointer; color: var(--blue);" onclick="clearLogs()">Clear</span>
+        </div>
+        <div id="terminal" class="terminal">
+          <div class="terminal-line">[System ready. Enter application URL and click Launch.]</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Profile & Resume -->
+    <div class="grid-2">
+      <!-- Left Column: Candidate Profile Editor -->
+      <div class="card">
+        <div class="card-title">
+          <span>👤 Candidate Profile (SQLite)</span>
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="loadProfile()">
+            🔄 Refresh
+          </button>
+        </div>
+
+        <form id="profileForm" onsubmit="saveProfile(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fullName">Full Name</label>
+              <input type="text" id="fullName" required />
+            </div>
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone Number</label>
+              <input type="tel" id="phone" required />
+            </div>
+            <div class="form-group">
+              <label for="location">Location</label>
+              <input type="text" id="location" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="linkedinUrl">LinkedIn URL</label>
+              <input type="text" id="linkedinUrl" />
+            </div>
+            <div class="form-group">
+              <label for="githubUrl">GitHub URL</label>
+              <input type="text" id="githubUrl" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="portfolioUrl">Portfolio Website</label>
+            <input type="text" id="portfolioUrl" />
+          </div>
+
+          <div class="form-group">
+            <label for="workAuthorization">Work Authorization</label>
+            <input type="text" id="workAuthorization" required />
+          </div>
+
+          <div class="form-group">
+            <label for="defaultCoverLetter">Default Cover Letter Context</label>
+            <textarea id="defaultCoverLetter" rows="4"></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+            <button type="submit" class="btn btn-blue">
+              💾 Save Profile to Database
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right Column: Resume Uploader & Q&A Memory -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Resume Upload Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>📄 Resume Upload</span>
+          </div>
+
+          <div 
+            class="dropzone" 
+            id="dropzone"
+            onclick="document.getElementById('fileInput').click()"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event)"
+          >
+            <div class="dropzone-icon">📁</div>
+            <p style="font-weight: 600; color: var(--heading);">Click or drag resume file here</p>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Supports PDF, DOCX, TXT</p>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display: none;" onchange="handleFileSelected(event)" />
+            <div id="fileStatus" class="file-status"></div>
+          </div>
+
+          <div id="activeResumeInfo" style="font-size: 12px; color: var(--text-muted); background: #0d1117; padding: 10px; border-radius: 6px;">
+            Active Resume: <span id="currentResumePath" style="color: var(--heading);">None loaded</span>
+          </div>
+        </div>
+
+        <!-- Stored Q&A Memory Card -->
+        <div class="card" style="flex: 1;">
+          <div class="card-title">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>🧠 Learned Q&A Memory</span>
+              <span id="qaCountBadge" class="badge" style="background: #21262d; color: var(--blue);">0 stored</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-secondary qa-btn" onclick="toggleAddQaForm()" title="Add custom question & answer">➕ Add</button>
+              <button type="button" class="btn btn-secondary qa-btn" onclick="exportDbJson()" title="Download database backup JSON">💾 Export</button>
+              <button type="button" class="btn btn-secondary qa-btn" onclick="toggleImportBox()" title="Import Q&As from JSON">📥 Import</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted);">
+            Answers previously provided to novel questions are remembered in SQLite so the agent never asks twice. You can add, edit, search, or delete stored answers at any time.
+          </p>
+
+          <!-- Search & Filter bar -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input 
+              type="text" 
+              id="qaSearchInput" 
+              placeholder="🔍 Search questions, answers, or keys..." 
+              oninput="filterQaList()" 
+              style="flex: 1; font-size: 12px; padding: 7px 10px;"
+            />
+            <button type="button" class="btn btn-secondary qa-btn" onclick="clearQaSearch()" style="padding: 7px 10px;">Clear</button>
+          </div>
+
+          <!-- Add Q&A Collapsible Form -->
+          <div id="addQaDrawer" style="display: none; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; flex-direction: column; gap: 8px;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--heading);">➕ Add New Question & Answer to Memory</div>
+            <div class="form-group">
+              <label style="font-size: 11px;">Question (e.g. prompt from application)</label>
+              <input type="text" id="newQaQuestion" placeholder="e.g., What is your expected salary range?" style="font-size: 12px; padding: 6px 8px;" />
+            </div>
+            <div class="form-group">
+              <label style="font-size: 11px;">Answer</label>
+              <textarea id="newQaAnswer" placeholder="e.g., $160,000 - $180,000" rows="2" style="font-size: 12px; padding: 6px 8px; min-height: 50px;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 6px;">
+              <button type="button" class="btn btn-secondary qa-btn" onclick="toggleAddQaForm()">Cancel</button>
+              <button type="button" class="btn btn-primary qa-btn" onclick="submitNewQa()">Save to Memory</button>
+            </div>
+          </div>
+
+          <!-- Import JSON Collapsible Form -->
+          <div id="importQaDrawer" style="display: none; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; flex-direction: column; gap: 8px;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--heading);">📥 Import Q&A / DB JSON</div>
+            <p style="font-size: 11px; color: var(--text-muted);">
+              Paste a JSON array <code>[{"question": "...", "answer": "..."}]</code> or full backup <code>{"profile": {...}, "qaMemory": [...]}</code>:
+            </p>
+            <textarea id="importJsonText" rows="3" placeholder='[{"question": "Preferred start date?", "answer": "Immediately"}]' style="font-size: 11px; font-family: monospace; min-height: 50px;"></textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <input type="file" id="importFileInput" accept=".json" style="font-size: 11px; color: var(--text-muted);" onchange="handleImportFile(event)" />
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-secondary qa-btn" onclick="toggleImportBox()">Cancel</button>
+                <button type="button" class="btn btn-blue qa-btn" onclick="submitImportJson()">Import Data</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic List of Stored Q&A -->
+          <div id="qaList" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+            <!-- Loaded dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Profile updated!</div>
+
+  <script>
+    let pollInterval = null;
+
+    // Load initial data
+    window.addEventListener('DOMContentLoaded', () => {
+      loadProfile();
+      loadQA();
+      startStatusPolling();
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/profile');
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const data = await res.json();
+
+        document.getElementById('fullName').value = data.fullName || '';
+        document.getElementById('email').value = data.email || '';
+        document.getElementById('phone').value = data.phone || '';
+        document.getElementById('location').value = data.location || '';
+        document.getElementById('linkedinUrl').value = data.linkedinUrl || '';
+        document.getElementById('githubUrl').value = data.githubUrl || '';
+        document.getElementById('portfolioUrl').value = data.portfolioUrl || '';
+        document.getElementById('workAuthorization').value = data.workAuthorization || '';
+        document.getElementById('defaultCoverLetter').value = data.defaultCoverLetter || '';
+
+        if (data.resumePath) {
+          document.getElementById('currentResumePath').textContent = data.resumePath;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function saveProfile(e) {
+      e.preventDefault();
+      const payload = {
+        fullName: document.getElementById('fullName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        location: document.getElementById('location').value,
+        linkedinUrl: document.getElementById('linkedinUrl').value,
+        githubUrl: document.getElementById('githubUrl').value,
+        portfolioUrl: document.getElementById('portfolioUrl').value,
+        workAuthorization: document.getElementById('workAuthorization').value,
+        defaultCoverLetter: document.getElementById('defaultCoverLetter').value,
+      };
+
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast('✅ Profile saved to SQLite!');
+        } else {
+          showToast('❌ Error saving profile');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('❌ Network error saving profile');
+      }
+    }
+
+    let allQas = [];
+    let editingQaId = null;
+
+    async function loadQA() {
+      try {
+        const res = await fetch('/api/qa');
+        allQas = await res.json();
+        renderQaList(getFilteredQas());
+      } catch (err) {
+        console.error('Error loading QA memory:', err);
+      }
+    }
+
+    function getFilteredQas() {
+      const searchInput = document.getElementById('qaSearchInput');
+      const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+      if (!query) return allQas;
+      return allQas.filter(item => 
+        (item.raw_question && item.raw_question.toLowerCase().includes(query)) ||
+        (item.answer && item.answer.toLowerCase().includes(query)) ||
+        (item.question_key && item.question_key.toLowerCase().includes(query))
+      );
+    }
+
+    function filterQaList() {
+      renderQaList(getFilteredQas());
+    }
+
+    function clearQaSearch() {
+      const searchInput = document.getElementById('qaSearchInput');
+      if (searchInput) searchInput.value = '';
+      renderQaList(allQas);
+    }
+
+    function renderQaList(items) {
+      const list = document.getElementById('qaList');
+      const countBadge = document.getElementById('qaCountBadge');
+      if (countBadge) {
+        countBadge.textContent = `${allQas.length} stored`;
+      }
+
+      if (!items || items.length === 0) {
+        const searchInput = document.getElementById('qaSearchInput');
+        const query = (searchInput ? searchInput.value : '').trim();
+        if (query) {
+          list.innerHTML = `<div style="font-size: 12px; color: #8b949e; padding: 16px; text-align: center;">No stored Q&As match "<strong>${escapeHtml(query)}</strong>".</div>`;
+        } else {
+          list.innerHTML = `<div style="font-size: 12px; color: #8b949e; padding: 16px; text-align: center;">No Q&A answers saved yet. Click <strong>➕ Add</strong> to pre-seed answers or run AutoApply.</div>`;
+        }
+        return;
+      }
+
+      list.innerHTML = items.map(item => {
+        const isEditing = (editingQaId === item.id);
+        if (isEditing) {
+          return `
+            <div class="qa-card editing" id="qa-card-${item.id}">
+              <div style="font-weight: 600; color: #58a6ff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ✏️ Editing Memory Item #${item.id}
+              </div>
+              <div class="form-group" style="margin-top: 4px;">
+                <label style="font-size: 11px; color: var(--text-muted);">Question</label>
+                <input type="text" id="edit-q-${item.id}" value="${escapeHtml(item.raw_question)}" style="font-size: 12px; padding: 6px 8px;" />
+              </div>
+              <div class="form-group">
+                <label style="font-size: 11px; color: var(--text-muted);">Answer</label>
+                <textarea id="edit-a-${item.id}" rows="2" style="font-size: 12px; padding: 6px 8px; min-height: 50px;">${escapeHtml(item.answer)}</textarea>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px;">
+                <button type="button" class="btn btn-secondary qa-btn" onclick="cancelEditQa()">Cancel</button>
+                <button type="button" class="btn btn-primary qa-btn" onclick="saveEditQa(${item.id})">💾 Save Changes</button>
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="qa-card" id="qa-card-${item.id}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+              <div style="font-weight: 600; color: #f0f6fc; line-height: 1.4; flex: 1;">
+                <span style="color: var(--text-muted); font-weight: normal; margin-right: 4px;">Q:</span>${escapeHtml(item.raw_question)}
+              </div>
+              <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                <button type="button" class="btn btn-secondary qa-btn" onclick="startEditQa(${item.id})" title="Edit question or answer">✏️ Edit</button>
+                <button type="button" class="btn btn-secondary qa-btn" onclick="deleteQa(${item.id})" title="Delete question from memory" style="color: var(--danger);">🗑️</button>
+              </div>
+            </div>
+            <div class="qa-answer-box">
+              <span style="color: var(--text-muted); margin-right: 4px; font-weight: 500;">A:</span>${escapeHtml(item.answer)}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
+                Key: <code style="color: #8b949e;">${escapeHtml(item.question_key)}</code>
+              </span>
+              <span>${item.created_at ? escapeHtml(item.created_at.split(' ')[0]) : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleAddQaForm() {
+      const drawer = document.getElementById('addQaDrawer');
+      const isHidden = drawer.style.display === 'none' || !drawer.style.display;
+      drawer.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden) {
+        document.getElementById('newQaQuestion').focus();
+      }
+    }
+
+    async function submitNewQa() {
+      const qInput = document.getElementById('newQaQuestion');
+      const aInput = document.getElementById('newQaAnswer');
+      const question = qInput.value.trim();
+      const answer = aInput.value.trim();
+
+      if (!question || !answer) {
+        alert('Please provide both question and answer.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/qa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, answer })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('✅ Saved to Q&A memory!');
+          qInput.value = '';
+          aInput.value = '';
+          document.getElementById('addQaDrawer').style.display = 'none';
+          await loadQA();
+        } else {
+          alert(`Error saving: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Network error: ${err.message}`);
+      }
+    }
+
+    function startEditQa(id) {
+      editingQaId = id;
+      renderQaList(getFilteredQas());
+      setTimeout(() => {
+        const aInput = document.getElementById('edit-a-' + id);
+        if (aInput) aInput.focus();
+      }, 50);
+    }
+
+    function cancelEditQa() {
+      editingQaId = null;
+      renderQaList(getFilteredQas());
+    }
+
+    async function saveEditQa(id) {
+      const qInput = document.getElementById('edit-q-' + id);
+      const aInput = document.getElementById('edit-a-' + id);
+      const question = qInput ? qInput.value.trim() : '';
+      const answer = aInput ? aInput.value.trim() : '';
+
+      if (!answer) {
+        alert('Answer cannot be empty.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/qa/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, answer })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('✅ Q&A updated in SQLite!');
+          editingQaId = null;
+          await loadQA();
+        } else {
+          alert(`Error updating: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Network error: ${err.message}`);
+      }
+    }
+
+    async function deleteQa(id) {
+      const item = allQas.find(q => q.id === id);
+      const preview = item ? `"${item.raw_question}"` : `item #${id}`;
+      if (!confirm(`Delete ${preview} from memory?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/qa/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('🗑️ Deleted from memory!');
+          if (editingQaId === id) editingQaId = null;
+          await loadQA();
+        } else {
+          alert(`Error deleting: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Network error: ${err.message}`);
+      }
+    }
+
+    function exportDbJson() {
+      showToast('📥 Downloading database backup...');
+      window.location.href = '/api/db/export';
+    }
+
+    function toggleImportBox() {
+      const drawer = document.getElementById('importQaDrawer');
+      const isHidden = drawer.style.display === 'none' || !drawer.style.display;
+      drawer.style.display = isHidden ? 'flex' : 'none';
+    }
+
+    function handleImportFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.getElementById('importJsonText').value = reader.result;
+      };
+      reader.readAsText(file);
+    }
+
+    async function submitImportJson() {
+      const raw = document.getElementById('importJsonText').value.trim();
+      if (!raw) {
+        alert('Please paste JSON or choose a JSON file.');
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        let payload = {};
+        if (Array.isArray(parsed)) {
+          payload = { qaMemory: parsed };
+        } else if (parsed && typeof parsed === 'object') {
+          payload = parsed;
+        } else {
+          alert('Invalid JSON structure. Expected array or object.');
+          return;
+        }
+
+        const res = await fetch('/api/db/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`✅ Imported ${data.qaImportedCount} Q&As!`);
+          document.getElementById('importJsonText').value = '';
+          document.getElementById('importQaDrawer').style.display = 'none';
+          await loadQA();
+          if (data.profileUpdated) {
+            await loadProfile();
+          }
+        } else {
+          alert(`Import failed: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Failed to parse or submit JSON: ${err.message}`);
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    // Drag and Drop & Resume Upload
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('dropzone').classList.add('dragover');
+    }
+    function handleDragLeave(e) {
+      e.preventDefault();
+      document.getElementById('dropzone').classList.remove('dragover');
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('dropzone').classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) uploadResumeFile(files[0]);
+    }
+    function handleFileSelected(e) {
+      const files = e.target.files;
+      if (files.length > 0) uploadResumeFile(files[0]);
+    }
+
+    async function uploadResumeFile(file) {
+      const statusEl = document.getElementById('fileStatus');
+      statusEl.textContent = `Uploading ${file.name}...`;
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        try {
+          const res = await fetch('/api/upload-resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, data: base64Data })
+          });
+          const json = await res.json();
+          if (json.success) {
+            statusEl.textContent = `✅ Uploaded: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+            document.getElementById('currentResumePath').textContent = json.resumePath;
+            if (json.parsedProfile) {
+              await loadProfile();
+              showToast('📄 Resume uploaded & parsed into profile!');
+            } else {
+              showToast('📄 Resume uploaded and linked to profile!');
+            }
+          } else {
+            statusEl.textContent = `❌ Upload failed: ${json.error}`;
+          }
+        } catch (err) {
+          statusEl.textContent = `❌ Upload failed: ${err.message}`;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Agent Launch & Polling
+    async function launchAgent() {
+      const jobUrl = document.getElementById('jobUrl').value.trim();
+      const execMode = document.getElementById('execMode').value;
+
+      if (!jobUrl) {
+        alert('Please enter a target job application URL');
+        return;
+      }
+
+      let mode = 'local';
+      let headed = true;
+
+      if (execMode === 'steel') {
+        mode = 'steel';
+        shouldOpenLiveViewOnLaunch = true;
+      } else {
+        shouldOpenLiveViewOnLaunch = false;
+        if (execMode === 'local-headless') {
+          mode = 'local';
+          headed = false;
+        }
+      }
+
+      const btn = document.getElementById('btnLaunch');
+      btn.disabled = true;
+      btn.textContent = '⏳ Launching...';
+
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobUrl, mode, headed })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          shouldOpenLiveViewOnLaunch = false;
+          alert(`Error: ${data.error}`);
+          btn.disabled = false;
+          btn.className = 'btn btn-primary';
+          btn.textContent = '▶️ Launch AutoApply';
+          btn.onclick = launchAgent;
+          return;
+        }
+
+        showToast('🚀 AutoApply Agent started!');
+        btn.disabled = false;
+        btn.className = 'btn btn-danger';
+        btn.textContent = '⏹️ Interrupt';
+        btn.onclick = interruptAgent;
+        const headerInterruptBtn = document.getElementById('btnHeaderInterrupt');
+        if (headerInterruptBtn) headerInterruptBtn.style.display = 'inline-flex';
+      } catch (err) {
+        shouldOpenLiveViewOnLaunch = false;
+        alert(`Network error: ${err.message}`);
+        btn.disabled = false;
+        btn.className = 'btn btn-primary';
+        btn.textContent = '▶️ Launch AutoApply';
+        btn.onclick = launchAgent;
+      }
+    }
+
+    async function interruptAgent() {
+      const btn = document.getElementById('btnLaunch');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Interrupting...';
+      }
+
+      try {
+        const res = await fetch('/api/interrupt', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('🛑 Agent execution interrupted!');
+          await checkStatus();
+        } else {
+          alert(`Error interrupting: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Network error interrupting agent: ${err.message}`);
+      }
+    }
+
+    async function submitHitlAnswer() {
+      const input = document.getElementById('hitlAnswer');
+      const answer = input.value.trim();
+      if (!answer) return;
+
+      try {
+        await fetch('/api/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answer })
+        });
+        input.value = '';
+        document.getElementById('hitlBox').style.display = 'none';
+        showToast('Answer sent to agent!');
+        loadQA(); // refresh stored Q&As
+      } catch (err) {
+        alert('Error sending answer: ' + err.message);
+      }
+    }
+
+    async function sendHitlQuickAnswer(ans) {
+      const input = document.getElementById('hitlAnswer');
+      if (input) input.value = ans;
+      await submitHitlAnswer();
+    }
+
+    function clearLogs() {
+      document.getElementById('terminal').innerHTML = '<div class="terminal-line">[Logs cleared]</div>';
+    }
+
+    function startStatusPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(checkStatus, 1500);
+    }
+
+    let shouldOpenLiveViewOnLaunch = false;
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // Update badge
+        const badge = document.getElementById('agentStatusBadge');
+        badge.className = `status-badge status-${data.status}`;
+        badge.textContent = `Status: ${data.status.replace(/_/g, ' ')}`;
+
+        if (data.model) {
+          const badgeModel = document.getElementById('badgeModel');
+          if (badgeModel) badgeModel.textContent = data.model;
+        }
+
+        const headerInterruptBtn = document.getElementById('btnHeaderInterrupt');
+        const statusNote = document.getElementById('statusNote');
+        const btn = document.getElementById('btnLaunch');
+
+        if (data.status === 'running' || data.status === 'waiting_for_human') {
+          if (headerInterruptBtn) headerInterruptBtn.style.display = 'inline-flex';
+          btn.disabled = false;
+          btn.className = 'btn btn-danger';
+          btn.textContent = '⏹️ Interrupt';
+          btn.onclick = interruptAgent;
+          if (statusNote) {
+            statusNote.innerHTML = '<span style="color: #e3b341;">AutoApply in progress — click Interrupt to halt</span>';
+          }
+        } else {
+          if (headerInterruptBtn) headerInterruptBtn.style.display = 'none';
+          btn.disabled = false;
+          btn.className = 'btn btn-primary';
+          btn.textContent = '▶️ Launch AutoApply';
+          btn.onclick = launchAgent;
+          shouldOpenLiveViewOnLaunch = false;
+          if (statusNote) {
+            if (data.status === 'interrupted' || data.status === 'interrupt') {
+              statusNote.innerHTML = '<span style="color: #d29922;">Interrupted by user</span>';
+            } else if (data.status === 'completed') {
+              statusNote.innerHTML = '<span style="color: var(--success);">AutoApply complete</span>';
+            } else if (data.status === 'error') {
+              statusNote.innerHTML = '<span style="color: var(--danger);">Execution error</span>';
+            } else {
+              statusNote.textContent = 'Ready';
+            }
+          }
+        }
+
+        // Check Steel Live View
+        const steelBox = document.getElementById('steelLiveViewBox');
+        if (data.liveViewUrl) {
+          steelBox.style.display = 'block';
+          document.getElementById('steelLiveLink').href = data.liveViewUrl;
+          if (shouldOpenLiveViewOnLaunch && (data.status === 'running' || data.status === 'waiting_for_human')) {
+            shouldOpenLiveViewOnLaunch = false;
+            window.open(data.liveViewUrl, '_blank');
+          }
+        } else {
+          steelBox.style.display = 'none';
+        }
+
+        if (data.status !== 'running' && data.status !== 'waiting_for_human') {
+          shouldOpenLiveViewOnLaunch = false;
+        }
+
+        // Check HITL pending question
+        const hitlBox = document.getElementById('hitlBox');
+        if (data.status === 'waiting_for_human' && data.pendingQuestion) {
+          hitlBox.style.display = 'flex';
+          const isMaxTurns = (data.pendingQuestion.context === 'max_turns_prompt');
+
+          const titleEl = document.getElementById('hitlTitle');
+          if (titleEl) {
+            titleEl.textContent = isMaxTurns
+              ? '⏱️ [Turn Limit Reached] Continue Agent Execution?'
+              : '🚨 [Human Action Required] Novel Question Encountered';
+          }
+
+          document.getElementById('hitlQuestion').textContent = isMaxTurns
+            ? data.pendingQuestion.question
+            : `Q: ${data.pendingQuestion.question}`;
+
+          const contextEl = document.getElementById('hitlContext');
+          if (contextEl) {
+            contextEl.textContent = (data.pendingQuestion.context && !isMaxTurns)
+              ? `Hint: ${data.pendingQuestion.context}`
+              : '';
+          }
+
+          const choicesEl = document.getElementById('hitlQuickChoices');
+          if (choicesEl) choicesEl.style.display = isMaxTurns ? 'flex' : 'none';
+
+          const answerInput = document.getElementById('hitlAnswer');
+          if (answerInput) {
+            answerInput.placeholder = isMaxTurns
+              ? 'Enter number of turns (e.g. 10, 20) or "no"...'
+              : 'Type your answer here...';
+          }
+        } else {
+          hitlBox.style.display = 'none';
+        }
+
+        // Update Logs
+        const term = document.getElementById('terminal');
+        if (data.logs && data.logs.length > 0) {
+          term.innerHTML = data.logs.map(l => `<div class="terminal-line">${escapeHtml(l)}</div>`).join('');
+          term.scrollTop = term.scrollHeight;
+        }
+      } catch (err) {
+        // quiet error during poll
+      }
+    }
+  </script>
+</body>
+</html>

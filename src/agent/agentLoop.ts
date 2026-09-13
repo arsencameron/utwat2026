@@ -15,6 +15,9 @@ export interface AgentRunOptions {
   model?: string;
   onHumanQuestion?: HumanInterceptionHandler;
   onTurnProgress?: (turn: number, assistantMessage: Anthropic.Message) => void;
+  onMaxTurnsReached?: (currentTurns: number) => Promise<number>;
+  abortSignal?: AbortSignal;
+  shouldStop?: () => boolean;
 }
 
 export interface AgentRunResult {
@@ -168,15 +171,15 @@ export class AgentLoop {
    * Run the multi-turn agent execution loop
    */
   public async run(options: AgentRunOptions): Promise<AgentRunResult> {
+    let currentMaxTurns = options.maxTurns ?? 40;
     const {
       jobUrl,
-      maxTurns = 40,
       model = this.defaultModel,
       onHumanQuestion = defaultCliHumanHandler,
       onTurnProgress,
     } = options;
 
-    console.log(`\n🚀 Starting Job Autofill Agent Loop`);
+    console.log(`\n🚀 Starting AutoApply Agent Loop`);
     console.log(`🎯 Target Job URL: ${jobUrl}`);
     console.log(`🤖 Model: ${model}`);
 
@@ -208,20 +211,90 @@ export class AgentLoop {
     let finalSummary = "";
     let completed = false;
 
-    while (turns < maxTurns && !completed) {
+    while (!completed) {
+      if (options.abortSignal?.aborted || options.shouldStop?.()) {
+        console.log("🛑 Agent run interrupted by user.");
+        return {
+          success: false,
+          turns,
+          summary: finalSummary || "AutoApply interrupted by user.",
+          error: "Interrupted by user",
+        };
+      }
+
+      // Check if turn limit reached before proceeding with next turn
+      if (turns >= currentMaxTurns) {
+        console.log(`\n⚠️ [Turn Limit] Reached ${currentMaxTurns} turns without completion.`);
+        let addTurns = 0;
+
+        if (options.onMaxTurnsReached) {
+          addTurns = await options.onMaxTurnsReached(turns);
+        } else if (onHumanQuestion) {
+          const question = `Agent reached turn limit (${currentMaxTurns} turns) without finishing. Would you like to continue for more turns? (Enter number of turns, e.g. 10, 20, or 'no' to stop)`;
+          const answer = await onHumanQuestion(question, "max_turns_prompt");
+
+          if (options.abortSignal?.aborted || options.shouldStop?.()) {
+            return {
+              success: false,
+              turns,
+              summary: finalSummary || "AutoApply interrupted by user.",
+              error: "Interrupted by user",
+            };
+          }
+
+          const trimmed = (answer || "").trim().toLowerCase();
+          if (trimmed === "no" || trimmed === "n" || trimmed === "stop" || trimmed === "cancel") {
+            addTurns = 0;
+          } else {
+            const numMatch = trimmed.match(/\d+/);
+            if (numMatch) {
+              addTurns = parseInt(numMatch[0], 10);
+            } else if (trimmed === "yes" || trimmed === "y" || trimmed === "continue") {
+              addTurns = 15;
+            }
+          }
+        }
+
+        if (addTurns > 0) {
+          currentMaxTurns += addTurns;
+          console.log(`🔄 Continuing agent execution for another ${addTurns} turns (new limit: ${currentMaxTurns}).`);
+          messages.push({
+            role: "user",
+            content: `Turn limit extended by ${addTurns} more turns. Please continue inspecting and autofilling the remaining form fields. When finished, call report_completion.`,
+          });
+          continue;
+        } else {
+          console.log(`🛑 Stopping agent: reached maximum limit of ${currentMaxTurns} turns.`);
+          finalSummary = finalSummary || `AutoApply stopped: reached maximum limit of ${currentMaxTurns} turns.`;
+          break;
+        }
+      }
+
       turns++;
-      console.log(`\n--- [Turn ${turns} / ${maxTurns}] Invoking Claude ---`);
+      console.log(`\n--- [Turn ${turns} / ${currentMaxTurns}] Invoking Claude ---`);
 
       let response: Anthropic.Message;
       try {
-        response = await this.anthropic.messages.create({
-          model,
-          system: systemPrompt,
-          messages,
-          tools: allTools,
-          max_tokens: 4096,
-        });
+        response = await this.anthropic.messages.create(
+          {
+            model,
+            system: systemPrompt,
+            messages,
+            tools: allTools,
+            max_tokens: 4096,
+          },
+          { signal: options.abortSignal }
+        );
       } catch (err: unknown) {
+        if (options.abortSignal?.aborted || (err instanceof Error && err.name === "APIUserAbortError")) {
+          console.log("[Agent] Run interrupted by user.");
+          return {
+            success: false,
+            turns,
+            summary: finalSummary || "Autofill interrupted by user.",
+            error: "Interrupted by user",
+          };
+        }
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[Agent] Anthropic API error:`, message);
         return {
@@ -258,6 +331,16 @@ export class AgentLoop {
         const toolResultBlocks: Anthropic.ToolResultBlockParam[] = [];
 
         for (const toolUse of toolUseBlocks) {
+          if (options.abortSignal?.aborted || options.shouldStop?.()) {
+            console.log("🛑 Agent run interrupted by user.");
+            return {
+              success: false,
+              turns,
+              summary: finalSummary || "Autofill interrupted by user.",
+              error: "Interrupted by user",
+            };
+          }
+
           const toolName = toolUse.name;
           const toolInput = (toolUse.input || {}) as Record<string, unknown>;
 
@@ -297,7 +380,7 @@ export class AgentLoop {
             const ready = Boolean(toolInput.readyForSubmission);
 
             console.log("\n" + "=".repeat(60));
-            console.log("✅ [AUTOFILL COMPLETED] Ready for Human Review");
+            console.log("✅ [AUTOAPPLY COMPLETED] Ready for Human Review");
             console.log("=".repeat(60));
             console.log(`Summary: ${summary}`);
             console.log(`Ready for Submission: ${ready}`);

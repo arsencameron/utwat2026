@@ -1,10 +1,12 @@
 {
   "name": "utwat2026",
   "version": "1.0.0",
-  "description": "Autonomous Job Autofill Agent with Human-in-the-Loop execution",
+  "description": "AutoApply - Autonomous Job Application Agent with Human-in-the-Loop execution",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "start": "tsx src/server.ts",
+    "ui": "tsx src/server.ts",
     "agent": "tsx src/index.ts",
     "cli": "tsx src/cli/run.ts",
     "build": "tsc",
@@ -30,7 +32,10 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.6.0",
     "better-sqlite3": "^11.8.1",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "pdfjs-dist": "^5.6.205",
+    "playwright": "^1.63.0",
+    "steel-sdk": "^0.18.0"
   },
   "devDependencies": {
     "@playwright/mcp": "^0.0.80",

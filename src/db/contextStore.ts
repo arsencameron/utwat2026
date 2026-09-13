@@ -88,16 +88,15 @@ export class ContextStore {
           )
         `)
         .run({
-          fullName: "Jane Doe",
-          email: "jane.doe@example.com",
-          phone: "+1 (555) 019-2834",
-          location: "San Francisco, CA",
-          linkedinUrl: "https://linkedin.com/in/janedoe-dev",
-          githubUrl: "https://github.com/janedoe-dev",
-          portfolioUrl: "https://janedoe.dev",
-          workAuthorization: "Authorized to work in the US. No sponsorship required.",
-          defaultCoverLetter:
-            "I am excited to apply for this role. With extensive full-stack and AI systems engineering experience, I specialize in building reliable autonomous agents, robust cloud pipelines, and performant web applications.",
+          fullName: "",
+          email: "",
+          phone: "",
+          location: "",
+          linkedinUrl: "",
+          githubUrl: "",
+          portfolioUrl: "",
+          workAuthorization: "",
+          defaultCoverLetter: "",
         });
     }
   }
@@ -140,7 +139,27 @@ export class ContextStore {
 
   public updateProfile(updates: Partial<CandidateProfile>): void {
     const current = this.getProfile();
-    const merged = { ...current, ...updates };
+    const cleanString = (val: unknown, fallback: string): string => {
+      if (val === null || val === undefined) return fallback;
+      return String(val).trim();
+    };
+
+    const sanitized = {
+      id: current.id,
+      fullName: cleanString(updates.fullName, current.fullName || ""),
+      email: cleanString(updates.email, current.email || ""),
+      phone: cleanString(updates.phone, current.phone || ""),
+      location: cleanString(updates.location, current.location || ""),
+      linkedinUrl: cleanString(updates.linkedinUrl, current.linkedinUrl || ""),
+      githubUrl: cleanString(updates.githubUrl, current.githubUrl || ""),
+      portfolioUrl: cleanString(updates.portfolioUrl, current.portfolioUrl || ""),
+      workAuthorization: cleanString(updates.workAuthorization, current.workAuthorization || ""),
+      defaultCoverLetter: cleanString(updates.defaultCoverLetter, current.defaultCoverLetter || ""),
+      resumePath:
+        updates.resumePath !== undefined && updates.resumePath !== null
+          ? String(updates.resumePath).trim()
+          : current.resumePath || "",
+    };
 
     this.db
       .prepare(`
@@ -158,7 +177,7 @@ export class ContextStore {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = @id
       `)
-      .run(merged);
+      .run(sanitized);
   }
 
   /**
@@ -234,10 +253,88 @@ export class ContextStore {
       .run(key, question.trim(), answer.trim());
   }
 
+  public getQAById(id: number): QARecord | undefined {
+    return this.db
+      .prepare("SELECT id, question_key, raw_question, answer, created_at FROM qa_memory WHERE id = ?")
+      .get(id) as QARecord | undefined;
+  }
+
+  public updateQA(id: number, answer: string, rawQuestion?: string): boolean {
+    if (rawQuestion && rawQuestion.trim()) {
+      const key = this.normalizeKey(rawQuestion);
+      const res = this.db
+        .prepare(`
+          UPDATE qa_memory
+          SET question_key = ?,
+              raw_question = ?,
+              answer = ?,
+              created_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `)
+        .run(key, rawQuestion.trim(), answer.trim(), id);
+      return res.changes > 0;
+    } else {
+      const res = this.db
+        .prepare(`
+          UPDATE qa_memory
+          SET answer = ?,
+              created_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `)
+        .run(answer.trim(), id);
+      return res.changes > 0;
+    }
+  }
+
+  public deleteQA(id: number): boolean {
+    const res = this.db.prepare("DELETE FROM qa_memory WHERE id = ?").run(id);
+    return res.changes > 0;
+  }
+
+  public clearAllQA(): number {
+    const res = this.db.prepare("DELETE FROM qa_memory").run();
+    return res.changes;
+  }
+
   public getAllQA(): QARecord[] {
     return this.db
-      .prepare("SELECT id, question_key, raw_question, answer, created_at FROM qa_memory ORDER BY id ASC")
+      .prepare("SELECT id, question_key, raw_question, answer, created_at FROM qa_memory ORDER BY id DESC")
       .all() as QARecord[];
+  }
+
+  public exportData(): { profile: CandidateProfile; qaMemory: QARecord[] } {
+    return {
+      profile: this.getProfile(),
+      qaMemory: this.getAllQA(),
+    };
+  }
+
+  public importQA(records: Array<{ raw_question?: string; question?: string; answer: string }>): number {
+    let imported = 0;
+    const insert = this.db.prepare(`
+      INSERT INTO qa_memory (question_key, raw_question, answer, created_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(question_key) DO UPDATE SET
+        raw_question = excluded.raw_question,
+        answer = excluded.answer,
+        created_at = CURRENT_TIMESTAMP
+    `);
+
+    const transaction = this.db.transaction((items: typeof records) => {
+      for (const item of items) {
+        const q = item.raw_question || item.question;
+        if (q && item.answer) {
+          const key = this.normalizeKey(q);
+          if (key) {
+            insert.run(key, q.trim(), item.answer.trim());
+            imported++;
+          }
+        }
+      }
+    });
+
+    transaction(records);
+    return imported;
   }
 
   public close(): void {

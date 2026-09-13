@@ -1,112 +1,142 @@
-# Quickstart: Job Autofill Agent
+# 🛠️ Setup & Architecture Guide: AutoApply
 
-Claude agent loop + SQLite persistence + Playwright MCP + Steel cloud browser,
-with a human in the loop for anything irreversible.
+Autonomous job application agent with Claude, SQLite persistent memory, Mozilla pdfjs-dist text extraction, Playwright MCP, Steel cloud browsers, and Human-in-the-Loop safeguards.
 
 ---
 
-## ⚡ Setup
+## ⚡ Prerequisites & Installation
 
-**Node 22 is required.** `better-sqlite3@11` has no prebuilt binary for Node 23+
-and fails to compile against it — `npm install` will die in `node-gyp`.
+> **Important**: **Node 22 is required.** `better-sqlite3@11` requires Node 22 (`npm install` will fail on Node 23+).
 
 ```bash
-# 0. Check your Node version
-node -v                      # must be v22.x
-# macOS: brew install node@22 && brew link --overwrite --force node@22
+# 0. Verify Node version (v22.x required)
+node -v
+# On macOS via Homebrew:
+# brew install node@22 && brew link --overwrite --force node@22
 
 # 1. Install dependencies
 npm install
 
-# 2. Configure credentials
+# 2. Configure environment
 cp .env.example .env
 ```
 
-Set these in `.env`:
+### Environment Variables (`.env`)
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...      # required
-ANTHROPIC_MODEL=claude-sonnet-5   # optional, this is a sensible default
-STEEL_API_KEY=ste-...             # required unless you pass --local
-```
+# Anthropic API Key (Required)
+ANTHROPIC_API_KEY=sk-ant-...
 
-```bash
-# 3. Verify
-npm test                     # 66 unit + integration tests
-npm run test:e2e             # optional: full-loop guard test, needs browsers
+# Model Selection (Optional - defaults to claude-3-5-sonnet-20241022)
+# Supports claude-haiku-4-5-20251001, claude-3-5-sonnet-20241022, etc.
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+
+# Steel.dev Cloud Browser Key (Optional - required for remote Steel browser mode)
+STEEL_API_KEY=ste-...
+
+# Playwright MCP Customization (Optional)
+# PLAYWRIGHT_MCP_COMMAND=npx
+# PLAYWRIGHT_MCP_ARGS=["-y","@playwright/mcp@latest"]
 ```
 
 ---
 
-## 🚀 Run the Agent
-
-### Recommended: Steel cloud browser with the safety guard
+## 🧪 Verification
 
 ```bash
-npm run cli -- "https://jobs.ashbyhq.com/wealthsimple/de09418a-8a12-46aa-a371-34bafaf5be26/application?utm_source=linkedinpaid"
+# Run comprehensive test suite (94 tests across 18 suites)
+npm test
+
+# Build TypeScript
+npm run build
 ```
 
-Prints a live session URL you can open to watch the remote browser work. Add
-`--local` to use a local browser instead (no Steel key needed, no live viewer).
+---
 
-### Core loop only (no Steel, no guard)
+## 🚀 Running AutoApply
+
+### Option 1: Web UI Dashboard (Recommended)
 
 ```bash
+npm run ui
+```
+
+Access **[http://localhost:3000](http://localhost:3000)**:
+- **Profile Management**: Stored in SQLite (`data/context.db`).
+- **Resume Upload**: Upload PDF or text resume. Extracted via Mozilla's **`pdfjs-dist`** and parsed with Claude into candidate fields.
+- **Learned Q&A Memory**: View, search, edit, delete, and export/import stored question-and-answer pairs.
+- **Job Application Runner**: Paste any Ashby, Greenhouse, or Lever job URL.
+- **Execution Modes**:
+  - `Steel.dev Cloud Browser (Remote)`: Opens live session viewer on launch.
+  - `Local Browser (Headed)`: Watch browser live on desktop.
+  - `Local Browser (Headless)`: Runs silently in the background.
+- **Control**: `⏹️ Interrupt` button to halt execution anytime; interactive turn extension dialog (`+10 Turns`, `+20 Turns`, `Stop`) when reaching turn limit.
+
+---
+
+### Option 2: CLI Runner
+
+```bash
+# Remote Steel.dev browser with live viewer + submit guard
+npm run cli -- "<JOB_URL>"
+
+# Local browser (no Steel API key required)
+npm run cli -- --local "<JOB_URL>"
+
+# Core agent loop only
 npm run agent -- "<JOB_URL>"
 ```
 
-> **Note**: If prompted with `[HUMAN INPUT REQUIRED]`, type your answer — it is
-> saved to SQLite (`data/context.db`) and reused on future applications. If
-> prompted with `[HUMAN INTERCEPTION REQUIRED]`, a submit-like click was halted:
-> answer `y` to allow it or press Enter to block. **The agent never submits an
-> application on its own.**
+#### CLI Flags
+
+| Flag | Description |
+| --- | --- |
+| `--local` | Drive a local Playwright browser instead of Steel |
+| `--offer-submit` | Prompts for human confirmation before the final submission click |
+| `--max-turns=N` | Max turns before prompting user to continue (default: 40) |
+| `--auto-approve` | Bypass human approval (demo/CI only) |
 
 ---
 
-## 🔌 Person 1: Steel Browser + MCP Interception + CLI HITL
+## 🏗️ Architecture Overview
 
-Full details in [STEEL.md](STEEL.md). The short version:
-
-```bash
-# .env needs ANTHROPIC_API_KEY and STEEL_API_KEY
-npm run cli -- "<JOB_URL>"
+```
+                          ┌────────────────────────┐
+                          │   AutoApply Web UI     │
+                          │ (http://localhost:3000)│
+                          └───────────┬────────────┘
+                                      │ REST API / HITL
+                                      ▼
+                          ┌────────────────────────┐
+                          │    Express / Node      │
+                          │      (server.ts)       │
+                          └─────┬────────────┬─────┘
+                                │            │
+      ┌─────────────────────────┴────┐   ┌───┴────────────────────────┐
+      │      Context Store           │   │      Agent Loop            │
+      │  (SQLite: data/context.db)   │   │  (Claude 3.5 / Haiku)      │
+      │   - Candidate Profile        │   └───────────────┬────────────┘
+      │   - Learned Q&A Memory       │                   │
+      └──────────────────────────────┘                   │ Tools
+                                                         ▼
+                                         ┌────────────────────────────┐
+                                         │    Guarded MCP Client      │
+                                         │    (@playwright/mcp)       │
+                                         └───────────────┬────────────┘
+                                                         │
+                                        ┌────────────────┴────────────┐
+                                        │                             │
+                                        ▼                             ▼
+                              ┌───────────────────┐        ┌───────────────────┐
+                              │  Steel.dev Cloud  │        │  Local Playwright │
+                              │   Browser (CDP)   │        │ (Headed/Headless) │
+                              └───────────────────┘        └───────────────────┘
 ```
 
-This creates a Steel cloud browser, prints the live session viewer URL, attaches
-`@playwright/mcp` to it over CDP, and runs the agent behind a guard that halts
-any submit-like click for confirmation in the terminal.
+- **`src/db/contextStore.ts`**: SQLite database with WAL mode. Stores profile, resume path, and Q&A memory with fuzzy & token-overlap matching.
+- **`src/util/pdfExtractor.ts`**: Mozilla `pdfjs-dist` text extractor for PDFs.
+- **`src/agent/agentLoop.ts`**: Multi-turn Claude agent loop with tool dispatch, stay-on-page protection, and interactive turn extensions.
+- **`src/mcp/guardedMcpClient.ts`**: Submit safeguard ensuring the agent never submits applications without human confirmation.
+- **`src/steel/steelSession.ts`**: Steel.dev remote browser provisioning and live view link generation.
+- **`src/server.ts`**: REST API and Web UI server.
 
-| Flag | Effect |
-| --- | --- |
-| `--local` | Skip Steel, drive a local browser (no live viewer) |
-| `--offer-submit` | After the agent reports done, attempt the final Submit so the guard prompts you |
-| `--auto-approve` | Never prompt — demo/CI only |
-| `--max-turns=N` | Cap the loop (default 40) |
-
-### Notes for the rest of the team
-
-- The MCP package is **`@playwright/mcp`** (the bin is `mcp-server-playwright`);
-  plain `playwright-mcp` is a different package. `PLAYWRIGHT_MCP_ARGS` still
-  overrides the invocation if you need something else.
-- Requires **Node 22** — `better-sqlite3@11` will not build on Node 23+.
-- Never print a CDP URL or argv directly; run it through `redactSecrets()` from
-  [src/util/redact.ts](src/util/redact.ts). Those URLs carry a session token.
-
-### Using the pieces directly
-
-```typescript
-import { SteelSessionManager, resolveMcpLaunch, GuardedMcpClient, AgentLoop } from "./src/index.js";
-
-const steel = new SteelSessionManager();
-const session = await steel.create();
-console.log("Watch:", session.liveViewUrl);
-
-const client = new GuardedMcpClient({
-  ...resolveMcpLaunch({ cdpEndpoint: session.cdpEndpoint }),
-  liveViewUrl: session.liveViewUrl,
-  prompt: async ({ match }) => ((await myConfirmUi(match.label)) ? "allow" : "deny"),
-});
-
-await new AgentLoop(client).run({ jobUrl, onHumanQuestion: myCliPrompt });
-await steel.release();
-```

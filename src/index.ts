@@ -109,7 +109,11 @@ const isDirectExecution =
   (process.argv[1].endsWith("src/index.ts") || process.argv[1].endsWith("src/index.js"));
 
 if (isDirectExecution) {
-  const targetUrl = process.argv[2] || "https://boards.greenhouse.io/embed/job_app?for=test&token=12345";
+  const targetUrl = process.argv[2];
+  if (!targetUrl) {
+    console.error("Usage: npx tsx src/index.ts <jobApplicationUrl>");
+    process.exit(1);
+  }
   console.log(`Starting Job Autofill CLI for: ${targetUrl}`);
 
   runJobAutofill(targetUrl).catch((err) => {
