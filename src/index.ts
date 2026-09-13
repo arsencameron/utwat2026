@@ -1,4 +1,6 @@
 import "dotenv/config";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { contextStore } from "./db/contextStore.js";
 import { PlaywrightMcpClient } from "./agent/mcpClient.js";
 import { AgentLoop, type HumanInterceptionHandler } from "./agent/agentLoop.js";
@@ -7,14 +9,19 @@ export { contextStore, type CandidateProfile, type QARecord } from "./db/context
 export { PlaywrightMcpClient, type PlaywrightMcpClientOptions } from "./agent/mcpClient.js";
 export { AgentLoop, type AgentRunOptions, type AgentRunResult, type HumanInterceptionHandler } from "./agent/agentLoop.js";
 
+export interface RunJobAutofillOptions {
+  mcpCommand?: string;
+  mcpArgs?: string[];
+  onHumanQuestion?: HumanInterceptionHandler;
+  keepOpen?: boolean;
+}
+
 export async function runJobAutofill(
   jobUrl: string,
-  options: {
-    mcpCommand?: string;
-    mcpArgs?: string[];
-    onHumanQuestion?: HumanInterceptionHandler;
-  } = {}
+  options: RunJobAutofillOptions = {}
 ) {
+  const { keepOpen = true } = options;
+
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("❌ Error: ANTHROPIC_API_KEY is not set.");
     console.error("Please set ANTHROPIC_API_KEY in your .env file or environment variables.");
@@ -46,6 +53,21 @@ export async function runJobAutofill(
     });
 
     console.log("\n[Main] Execution finished with result:", result);
+
+    if (keepOpen && process.stdin.isTTY) {
+      console.log("\n" + "=".repeat(60));
+      console.log("The application page is left open for your review and submission.");
+      console.log("👉 Press [Enter] in this terminal when finished to close the browser...");
+      console.log("=".repeat(60) + "\n");
+
+      const rl = readline.createInterface({ input, output });
+      try {
+        await rl.question("");
+      } finally {
+        rl.close();
+      }
+    }
+
     return result;
   } finally {
     await mcpClient.disconnect();

@@ -140,6 +140,7 @@ ${qaSection}
    - The human's answer will be saved into SQLite so you will remember it in all future runs.
 5. **CRITICAL HUMAN-IN-THE-LOOP SAFETY GUARD**:
    - **DO NOT CLICK THE FINAL SUBMIT BUTTON UNDER ANY CIRCUMSTANCES.**
+   - **DO NOT CLOSE THE BROWSER WINDOW.** Leave the page open on the completed application so the candidate can review.
    - Once all form fields have been filled out and validated, call the local tool 'report_completion'.
    - Summarize what was completed and ask the human to review and submit.`;
 }
@@ -183,7 +184,9 @@ export class AgentLoop {
     if (!this.mcpClient.isConnected) {
       await this.mcpClient.connect();
     }
-    const mcpTools = await this.mcpClient.getAnthropicTools();
+    const rawMcpTools = await this.mcpClient.getAnthropicTools();
+    // Exclude browser_close so the browser remains open after autofill
+    const mcpTools = rawMcpTools.filter((t) => t.name !== "browser_close");
     const allTools: Anthropic.Tool[] = [...mcpTools, ...LOCAL_TOOLS];
 
     console.log(`🛠️ Active Tools: ${allTools.length} total (${mcpTools.length} browser tools + ${LOCAL_TOOLS.length} local HITL tools)`);
