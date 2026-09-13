@@ -9,7 +9,8 @@
     "cli": "tsx src/cli/run.ts",
     "build": "tsc",
     "test": "tsx --test tests/**/*.test.ts",
-    "test:e2e": "tsx tests/e2e/submitGuardFlow.ts"
+    "test:e2e": "tsx tests/e2e/submitGuardFlow.ts",
+    "test:bypass": "tsx tests/e2e/bypassProbe.ts"
   },
   "repository": {
     "type": "git",

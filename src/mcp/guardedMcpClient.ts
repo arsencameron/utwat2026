@@ -12,6 +12,7 @@ import { PlaywrightMcpClient, type PlaywrightMcpClientOptions, type ToolExecutio
 import {
   buildDenialMessage,
   isGuardedAction,
+  lookupRefLabel,
   type GuardMatch,
 } from "../hitl/submitGuard.js";
 import { askChoice, isInteractive } from "../cli/prompt.js";
@@ -97,6 +98,8 @@ export class GuardedMcpClient extends PlaywrightMcpClient {
     args: Record<string, unknown>
   ) => Promise<ToolExecutionResult>;
   private allowAll = false;
+  /** Most recent accessibility snapshot, used to resolve refs to real labels. */
+  private lastSnapshot = "";
 
   constructor(options: GuardedMcpClientOptions = {}) {
     super(options);
@@ -115,17 +118,18 @@ export class GuardedMcpClient extends PlaywrightMcpClient {
     const match = isGuardedAction(name, args, {
       keywords: this.keywords,
       guardEnterKey: this.guardEnterKey,
+      resolvedLabel: this.resolveTarget(args),
     });
 
     if (!match.guarded) {
-      return this.execute(name, args);
+      return this.captureSnapshot(await this.execute(name, args));
     }
 
     if (this.autoApprove || this.allowAll) {
       const verdict = this.autoApprove ? "auto-approved" : "allow-all";
       console.log(`[HITL] Auto-approving guarded action (${verdict}): ${match.label}`);
       this.record(name, match, verdict);
-      return this.execute(name, args);
+      return this.captureSnapshot(await this.execute(name, args));
     }
 
     const verdict = await this.prompt({
@@ -147,7 +151,31 @@ export class GuardedMcpClient extends PlaywrightMcpClient {
     }
 
     console.log(`[HITL] ✅ Approved "${name}" on "${match.label}".`);
-    return this.execute(name, args);
+    return this.captureSnapshot(await this.execute(name, args));
+  }
+
+  /**
+   * Remembers any tool output that carries an accessibility snapshot, so a
+   * later click can be checked against what the page actually calls the target
+   * rather than only the description the model supplied.
+   */
+  private captureSnapshot(result: ToolExecutionResult): ToolExecutionResult {
+    if (!result.isError && result.content.includes("[ref=")) {
+      this.lastSnapshot = result.content;
+    }
+    return result;
+  }
+
+  /** Resolves the ref in a tool call against the last snapshot, if possible. */
+  private resolveTarget(args: Record<string, unknown>): string | null {
+    const ref =
+      typeof args.target === "string"
+        ? args.target
+        : typeof args.ref === "string"
+          ? args.ref
+          : null;
+    if (!ref || !this.lastSnapshot) return null;
+    return lookupRefLabel(this.lastSnapshot, ref);
   }
 
   private async execute(

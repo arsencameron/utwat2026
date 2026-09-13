@@ -106,9 +106,25 @@ executed against the remote browser, visible in the live viewer.
 
 **1. Submit interception** — [`src/mcp/guardedMcpClient.ts`](src/mcp/guardedMcpClient.ts)
 wraps the MCP client, so it inspects the real tool call rather than trusting the
-system prompt. A click whose target matches a guarded phrase
-([`src/hitl/submitGuard.ts`](src/hitl/submitGuard.ts): `submit`, `send application`,
-`apply now`, …) — or an Enter keypress — halts the loop:
+system prompt. Guarded routes ([`src/hitl/submitGuard.ts`](src/hitl/submitGuard.ts)):
+
+| Tool | Halted when |
+| --- | --- |
+| `browser_click` | Target matches `submit`, `send application`, `apply now`, … |
+| `browser_type` | Called with `submit: true` — it presses Enter afterwards |
+| `browser_press_key` | The key is Enter/Return |
+| `browser_evaluate` | The JS calls `.submit()`, `requestSubmit()` or `.click()` |
+| `browser_run_code_unsafe` | Always — arbitrary Playwright code cannot be screened |
+
+A click is matched on **both** the model's description and what the page itself
+calls that element, resolved from the last accessibility snapshot. A model that
+describes the Submit button as "final action button" is still caught.
+
+`npm run test:bypass` exercises all of these against a real browser. Reads,
+navigation and ordinary field fills are never guarded, so the agent keeps full
+speed until the point of no return.
+
+A halted action looks like this:
 
 ```
 ========================================================================
@@ -123,10 +139,9 @@ Arguments: {"element":"Submit application button","ref":"e42"}
 👉 [y] allow once   [a] allow all for this run   [N] block (default):
 ```
 
-Blocking is the default (including when there is no TTY). The click never
+Blocking is the default (including when there is no TTY). The action never
 reaches the MCP server; Claude receives a denial result that tells it to stop
-retrying and call `report_completion` instead. Reads, navigation and field fills
-are never guarded, so the agent keeps full speed until the point of no return.
+retrying and call `report_completion` instead.
 
 **2. Missing information** — [`src/hitl/humanQuestion.ts`](src/hitl/humanQuestion.ts)
 handles Claude's `ask_human_and_save` tool. The question (plus any dropdown

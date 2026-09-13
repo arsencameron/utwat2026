@@ -165,8 +165,15 @@ async function attemptSubmit(mcpClient: GuardedMcpClient): Promise<void> {
   });
 
   if (clicked.isError) {
-    console.log("\n🛑 Not submitted — the click was blocked or failed.");
-    console.log(`   ${clicked.content.split("\n")[0]}\n`);
+    // The tool result is addressed to the model; say something useful to the
+    // person sitting at the terminal instead of echoing it.
+    const blockedByHuman = clicked.content.includes("BLOCKED BY HUMAN OPERATOR");
+    console.log(
+      blockedByHuman
+        ? "\n🛑 Not submitted — you blocked the click. The filled form is untouched."
+        : `\n🛑 Not submitted — the click failed: ${clicked.content.slice(0, 200)}`
+    );
+    console.log("   Submit it yourself in the browser if the form looks right.\n");
     return;
   }
 

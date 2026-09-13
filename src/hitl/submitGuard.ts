@@ -20,6 +20,43 @@ export const DEFAULT_SUBMIT_KEYWORDS = [
 /** Keys that submit the focused form. */
 const SUBMIT_KEYS = new Set(["enter", "numpadenter", "return"]);
 
+/**
+ * Code patterns that can submit a form without ever issuing a click, used to
+ * screen the arbitrary JavaScript that browser_evaluate accepts.
+ */
+const SUBMITTING_CODE = [
+  /\.submit\s*\(/i,
+  /requestSubmit/i,
+  /\.click\s*\(/i,
+  /type\s*=\s*["']?submit/i,
+  /getByRole\s*\(\s*["']button["']/i,
+];
+
+/**
+ * Tools that can drive the page arbitrarily. There is no reliable way to tell
+ * from the arguments whether they submit, so they always require confirmation.
+ */
+const ALWAYS_GUARDED_TOOLS = new Set(["browser_run_code_unsafe"]);
+
+/** Pulls the role and accessible name for a ref out of a snapshot. */
+const REF_LINE = (ref: string) =>
+  new RegExp(`-\\s*(\\w+)\\s+"([^"]+)"[^\\n]*?\\[ref=${ref.replace(/[^\w-]/g, "")}\\]`, "i");
+
+/**
+ * Resolves a snapshot reference (e.g. `e16`) to what the page actually calls
+ * that element, e.g. `button "Submit application"`.
+ *
+ * The `element` argument on a tool call is written by the model, so it cannot
+ * be trusted to describe what is really being clicked. The snapshot can.
+ */
+export function lookupRefLabel(snapshot: string, ref: string): string | null {
+  if (!snapshot || !ref) return null;
+  const match = snapshot.match(REF_LINE(ref));
+  if (!match) return null;
+  const [, role = "", name = ""] = match;
+  return `${role.toLowerCase()} "${name}"`;
+}
+
 export interface GuardMatch {
   /** True when the call must be confirmed by a human before it runs. */
   guarded: boolean;
@@ -33,6 +70,11 @@ export interface GuardConfig {
   keywords?: string[];
   /** Also guard Enter/Return key presses, which submit a focused form. */
   guardEnterKey?: boolean;
+  /**
+   * What the page calls the targeted element, resolved from the last snapshot.
+   * Checked alongside the model's own description, which can be inaccurate.
+   */
+  resolvedLabel?: string | null;
 }
 
 /** Collects every string in a tool-call argument object, depth-limited. */
@@ -79,19 +121,56 @@ export function isGuardedAction(
   config: GuardConfig = {}
 ): GuardMatch {
   const keywords = (config.keywords ?? DEFAULT_SUBMIT_KEYWORDS).map((k) => k.toLowerCase());
-  const label = describeToolCall(toolName, args);
+  const resolved = config.resolvedLabel ?? null;
+  const label = resolved
+    ? `${describeToolCall(toolName, args)} → page says ${resolved}`
+    : describeToolCall(toolName, args);
+
+  // Arbitrary Playwright code: unreviewable, so always confirmed.
+  if (ALWAYS_GUARDED_TOOLS.has(toolName)) {
+    return {
+      guarded: true,
+      label,
+      reason: `${toolName} runs arbitrary browser code and cannot be checked automatically`,
+    };
+  }
 
   if (toolName === "browser_click") {
-    const haystack = collectStrings(args).join(" | ").toLowerCase();
+    // The model's own description AND what the page actually calls the element.
+    const haystack = [...collectStrings(args), resolved ?? ""].join(" | ").toLowerCase();
     const hit = keywords.find((keyword) => haystack.includes(keyword));
     if (hit) {
+      const viaPage = resolved?.toLowerCase().includes(hit) ?? false;
       return {
         guarded: true,
         label,
-        reason: `click target matches guarded phrase "${hit}"`,
+        reason: viaPage
+          ? `the page calls this element ${resolved}, matching guarded phrase "${hit}"`
+          : `click target matches guarded phrase "${hit}"`,
       };
     }
     return { guarded: false, label, reason: "" };
+  }
+
+  // Typing with submit:true presses Enter afterwards, submitting the form.
+  if (toolName === "browser_type" && args.submit === true) {
+    return {
+      guarded: true,
+      label,
+      reason: "browser_type was called with submit:true, which presses Enter and submits the form",
+    };
+  }
+
+  // Arbitrary JavaScript that clicks or calls form.submit().
+  if (toolName === "browser_evaluate") {
+    const code = typeof args.function === "string" ? args.function : "";
+    if (SUBMITTING_CODE.some((pattern) => pattern.test(code))) {
+      return {
+        guarded: true,
+        label,
+        reason: "browser_evaluate runs page code that clicks or submits a form",
+      };
+    }
   }
 
   if (toolName === "browser_press_key" && config.guardEnterKey !== false) {

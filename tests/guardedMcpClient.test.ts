@@ -83,6 +83,58 @@ describe("GuardedMcpClient", () => {
     );
   });
 
+  test("catches a mislabeled submit click using the last snapshot", async () => {
+    const executed: Call[] = [];
+    const client = new GuardedMcpClient({
+      executor: async (name, args) => {
+        executed.push({ name, args });
+        return {
+          content:
+            name === "browser_snapshot"
+              ? '- generic [ref=e1]:\n  - button "Submit application" [ref=e16]'
+              : "clicked",
+          isError: false,
+        };
+      },
+      prompt: async () => "deny",
+    });
+
+    // The snapshot teaches the client what e16 really is.
+    await client.callTool("browser_snapshot", {});
+
+    // The model now describes it as something innocuous.
+    const result = await client.callTool("browser_click", {
+      element: "final action button",
+      target: "e16",
+    });
+
+    assert.equal(result.isError, true, "the mislabeled click must still be blocked");
+    assert.equal(executed.length, 1, "only the snapshot ran; the click did not");
+    assert.match(client.interceptions[0]?.reason ?? "", /the page calls this element/);
+  });
+
+  test("a click is allowed when the snapshot shows a harmless target", async () => {
+    const executed: Call[] = [];
+    const client = new GuardedMcpClient({
+      executor: async (name, args) => {
+        executed.push({ name, args });
+        return {
+          content: name === "browser_snapshot" ? '- button "Add another role" [ref=e7]' : "clicked",
+          isError: false,
+        };
+      },
+      prompt: async () => {
+        throw new Error("must not prompt for a harmless click");
+      },
+    });
+
+    await client.callTool("browser_snapshot", {});
+    const result = await client.callTool("browser_click", { element: "Add another role", target: "e7" });
+
+    assert.equal(result.isError, false);
+    assert.equal(executed.length, 2);
+  });
+
   test("autoApprove skips the prompt entirely", async () => {
     const executed: Call[] = [];
     const client = new GuardedMcpClient({
