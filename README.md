@@ -37,7 +37,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - **⏹️ One-Click Interruption**: Instantly stop active runs at any turn via the `⏹️ Interrupt` button or `POST /api/interrupt`.
 - **⏱️ Interactive Turn Extension**: When turn limit is reached, AutoApply prompts you to continue (`+10 Turns`, `+20 Turns`, or `Stop`).
 - **🌐 Flexible Execution Modes**:
-  - **Steel.dev Cloud Browser**: Remote browser session with live viewer (opens cleanly only on launch).
+  - **Steel.dev Cloud Browser**: Remote browser with interactive live viewer, session keep-alive for manual review, follow-up prompt continuation, and explicit session release.
   - **Local Headed**: Live desktop browser window.
   - **Local Headless**: Fast background execution.
 

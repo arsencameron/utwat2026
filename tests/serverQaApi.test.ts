@@ -138,4 +138,32 @@ describe("Server Q&A Memory and DB API", () => {
     const body = await res.json();
     assert.ok(body.error.includes("No agent task"));
   });
+
+  test("GET /api/status includes session tracking fields", async () => {
+    const res = await fetch(`${baseUrl}/api/status`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(typeof data.hasActiveSession, "boolean");
+    assert.ok("activeSessionId" in data);
+  });
+
+  test("POST /api/session/release returns success when no active session", async () => {
+    const res = await fetch(`${baseUrl}/api/session/release`, {
+      method: "POST",
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+  });
+
+  test("POST /api/session/continue returns 400 when no active session exists", async () => {
+    const res = await fetch(`${baseUrl}/api/session/continue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customInstruction: "Fill remaining fields" }),
+    });
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error.includes("No active Steel session"));
+  });
 });

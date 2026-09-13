@@ -93,7 +93,7 @@ npm run agent -- "<JOB_URL>"
 | --- | --- |
 | `--local` | Drive a local Playwright browser instead of Steel |
 | `--offer-submit` | Prompts for human confirmation before the final submission click |
-| `--max-turns=N` | Max turns before prompting user to continue (default: 40) |
+| `--max-turns=N` | Max turns before prompting user to continue (default: 100) |
 | `--auto-approve` | Bypass human approval (demo/CI only) |
 
 ---

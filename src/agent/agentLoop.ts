@@ -18,6 +18,8 @@ export interface AgentRunOptions {
   onMaxTurnsReached?: (currentTurns: number) => Promise<number>;
   abortSignal?: AbortSignal;
   shouldStop?: () => boolean;
+  customInstruction?: string;
+  navigate?: boolean;
 }
 
 export interface AgentRunResult {
@@ -171,7 +173,7 @@ export class AgentLoop {
    * Run the multi-turn agent execution loop
    */
   public async run(options: AgentRunOptions): Promise<AgentRunResult> {
-    let currentMaxTurns = options.maxTurns ?? 40;
+    let currentMaxTurns = options.maxTurns ?? 100;
     const {
       jobUrl,
       model = this.defaultModel,
@@ -200,10 +202,18 @@ export class AgentLoop {
     const systemPrompt = buildSystemPrompt(profile, qaMemory);
 
     // 3. Initialize message history
+    let initialPrompt = `Please navigate to the job application at ${jobUrl}, inspect the form, autofill all fields using my profile and memory, and ask me if you encounter any unknown questions. When done, call report_completion. Do not submit the application.`;
+
+    if (options.customInstruction) {
+      initialPrompt = `The browser is already open on the application page. ${options.customInstruction}. Inspect the current page state, autofill any remaining fields using my profile and memory, and ask me if you encounter any unknown questions. When done, call report_completion. Do not submit the application.`;
+    } else if (options.navigate === false) {
+      initialPrompt = `The browser is already open at ${jobUrl}. Inspect the form, autofill all remaining fields using my profile and memory, and ask me if you encounter any unknown questions. When done, call report_completion. Do not submit the application.`;
+    }
+
     const messages: Anthropic.MessageParam[] = [
       {
         role: "user",
-        content: `Please navigate to the job application at ${jobUrl}, inspect the form, autofill all fields using my profile and memory, and ask me if you encounter any unknown questions. When done, call report_completion. Do not submit the application.`,
+        content: initialPrompt,
       },
     ];
 

@@ -46,6 +46,9 @@ const state: AgentState = {
   abortController: null,
 };
 
+let activeSteelSession: SteelSession | null = null;
+let activeSteelManager: SteelSessionManager | null = null;
+
 function addLog(msg: string) {
   const timestamp = new Date().toLocaleTimeString();
   state.logs.push(`[${timestamp}] ${msg}`);
@@ -405,6 +408,9 @@ Return ONLY valid JSON with no markdown tags or code fences.`;
         jobUrl: string;
         mode?: "steel" | "local";
         headed?: boolean;
+        keepSessionAlive?: boolean;
+        reuseSession?: boolean;
+        customInstruction?: string;
       }>(req);
 
       if (!body.jobUrl || !body.jobUrl.startsWith("http")) {
@@ -428,16 +434,24 @@ Return ONLY valid JSON with no markdown tags or code fences.`;
       state.logs = [];
       state.summary = null;
       state.error = null;
-      state.liveViewUrl = null;
+      if (!body.reuseSession) {
+        state.liveViewUrl = null;
+      }
 
       addLog(`🚀 Launching Agent for: ${body.jobUrl}`);
       addLog(`Mode: ${body.mode === "steel" ? "Steel.dev Cloud Browser" : "Local Playwright"}`);
+      if (body.keepSessionAlive !== false && body.mode === "steel") {
+        addLog("⚙️ Keep-Alive enabled: Steel session will remain open for human review after completion.");
+      }
 
       // Run background execution
       startAgentExecution({
         jobUrl: body.jobUrl,
         mode: body.mode || "local",
         headed: body.headed ?? true,
+        keepSessionAlive: body.keepSessionAlive ?? true,
+        reuseSession: body.reuseSession,
+        customInstruction: body.customInstruction,
       });
 
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -446,6 +460,74 @@ Return ONLY valid JSON with no markdown tags or code fences.`;
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
     }
+    return;
+  }
+
+  // 6b. POST /api/session/continue (Continue execution on existing active session)
+  if (req.method === "POST" && pathname === "/api/session/continue") {
+    if (state.status === "running" || state.status === "waiting_for_human") {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "An agent task is already currently running." }));
+      return;
+    }
+
+    if (!activeSteelSession) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No active Steel session to continue from." }));
+      return;
+    }
+
+    try {
+      const body = await parseJsonBody<{
+        customInstruction?: string;
+      }>(req);
+
+      const jobUrl = state.jobUrl || "active-browser-session";
+      state.status = "running";
+      state.summary = null;
+      state.error = null;
+
+      addLog(`♻️ Continuing execution on active Steel session (${activeSteelSession.id})...`);
+      if (body.customInstruction) {
+        addLog(`Instruction: "${body.customInstruction}"`);
+      }
+
+      startAgentExecution({
+        jobUrl,
+        mode: "steel",
+        headed: false,
+        reuseSession: true,
+        keepSessionAlive: true,
+        customInstruction: body.customInstruction,
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, message: "Continuation launched." }));
+    } catch (err: unknown) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+    return;
+  }
+
+  // 6c. POST /api/session/release (Manually release active Steel session)
+  if (req.method === "POST" && pathname === "/api/session/release") {
+    if (activeSteelManager) {
+      addLog("Manually releasing active Steel session...");
+      try {
+        await activeSteelManager.release();
+      } finally {
+        activeSteelManager = null;
+        activeSteelSession = null;
+        state.liveViewUrl = null;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, message: "Steel session released." }));
+      return;
+    }
+    state.liveViewUrl = null;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ success: true, message: "No active Steel session to release." }));
     return;
   }
 
@@ -458,6 +540,8 @@ Return ONLY valid JSON with no markdown tags or code fences.`;
         jobUrl: state.jobUrl,
         logs: state.logs,
         liveViewUrl: state.liveViewUrl,
+        hasActiveSession: Boolean(activeSteelSession),
+        activeSessionId: activeSteelSession ? activeSteelSession.id : null,
         summary: state.summary,
         error: state.error,
         model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
@@ -564,21 +648,39 @@ async function startAgentExecution(params: {
   jobUrl: string;
   mode: "steel" | "local";
   headed: boolean;
+  keepSessionAlive?: boolean;
+  reuseSession?: boolean;
+  customInstruction?: string;
 }) {
   let steelSession: SteelSession | null = null;
   let steelManager: SteelSessionManager | null = null;
   const abortController = new AbortController();
   state.abortController = abortController;
+  const keepAlive = params.keepSessionAlive !== false;
 
   try {
     let mcpClient: PlaywrightMcpClient | GuardedMcpClient;
 
     if (params.mode === "steel" && process.env.STEEL_API_KEY) {
-      addLog("Connecting to Steel.dev Cloud Browser...");
-      steelManager = new SteelSessionManager();
-      steelSession = await steelManager.create();
-      state.liveViewUrl = steelSession.liveViewUrl;
-      addLog(`Steel Session created! Live View: ${steelSession.liveViewUrl}`);
+      if (params.reuseSession && activeSteelSession && activeSteelManager) {
+        addLog(`♻️ Reusing existing Steel session (${activeSteelSession.id})...`);
+        steelSession = activeSteelSession;
+        steelManager = activeSteelManager;
+      } else {
+        if (activeSteelSession && activeSteelManager) {
+          addLog("Cleaning up previous Steel session...");
+          await activeSteelManager.release().catch(() => {});
+          activeSteelSession = null;
+          activeSteelManager = null;
+        }
+        addLog("Connecting to Steel.dev Cloud Browser...");
+        steelManager = new SteelSessionManager();
+        steelSession = await steelManager.create();
+        activeSteelSession = steelSession;
+        activeSteelManager = steelManager;
+        state.liveViewUrl = steelSession.liveViewUrl;
+        addLog(`Steel Session created! Live View: ${steelSession.liveViewUrl}`);
+      }
 
       const launch = resolveMcpLaunch({
         cdpEndpoint: steelSession.cdpEndpoint,
@@ -616,6 +718,8 @@ async function startAgentExecution(params: {
     const result = await agent.run({
       jobUrl: params.jobUrl,
       model,
+      customInstruction: params.customInstruction,
+      navigate: !params.reuseSession,
       abortSignal: abortController.signal,
       shouldStop: () => state.status === "interrupted" || state.status === "interrupt",
       onHumanQuestion: async (question, context) => {
@@ -675,10 +779,21 @@ async function startAgentExecution(params: {
   } finally {
     state.abortController = null;
     if (steelSession && steelManager) {
-      addLog("Cleaning up Steel session...");
-      await steelManager.release();
+      if (!keepAlive) {
+        addLog("Cleaning up Steel session...");
+        await steelManager.release().catch(() => {});
+        if (activeSteelSession === steelSession) {
+          activeSteelSession = null;
+          activeSteelManager = null;
+          state.liveViewUrl = null;
+        }
+      } else {
+        addLog(`👉 Steel cloud browser kept open for your review. Live View: ${steelSession.liveViewUrl}`);
+        state.liveViewUrl = steelSession.liveViewUrl;
+      }
+    } else if (params.mode !== "steel") {
+      state.liveViewUrl = null;
     }
-    state.liveViewUrl = null;
   }
 }
 

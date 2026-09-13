@@ -24,7 +24,7 @@ Options:
   --no-keep-alive   Release the Steel session immediately when the run ends
   --offer-submit    After the agent reports done, attempt the final Submit
                     click so the guard prompts you to approve or block it
-  --max-turns=N     Cap the agent loop at N turns (default 40)
+  --max-turns=N     Cap the agent loop at N turns (default 100)
   -h, --help        Show this message
 
 Environment:

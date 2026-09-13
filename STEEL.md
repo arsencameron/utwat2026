@@ -70,7 +70,7 @@ safely. If you add logging that prints a CDP URL or argv, run it through
 | `--auto-approve` | Do not prompt on submit-like clicks — demo/CI only |
 | `--no-keep-alive` | Release the Steel session as soon as the run ends |
 | `--offer-submit` | After the agent reports done, attempt the final Submit click so the guard prompts you |
-| `--max-turns=N` | Cap the agent loop (default 40) |
+| `--max-turns=N` | Cap the agent loop (default 100) |
 
 ### Showing the guard actually working
 
