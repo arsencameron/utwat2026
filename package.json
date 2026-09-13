@@ -1,24 +1,39 @@
 {
   "name": "utwat2026",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Autonomous Job Autofill Agent with Human-in-the-Loop execution",
+  "main": "dist/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "agent": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arsencameron/utwat2026.git"
   },
-  "keywords": [],
+  "keywords": [
+    "anthropic",
+    "mcp",
+    "playwright",
+    "sqlite",
+    "hitl",
+    "job-autofill"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/arsencameron/utwat2026/issues"
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7"
   },
-  "homepage": "https://github.com/arsencameron/utwat2026#readme",
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "@playwright/mcp": "^0.0.80",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }

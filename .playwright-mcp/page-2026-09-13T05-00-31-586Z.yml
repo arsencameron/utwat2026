@@ -1,0 +1,56 @@
+- generic [ref=e2]:
+  - list [ref=e4]:
+    - listitem [ref=e5]:
+      - link [ref=e6] [cursor=pointer]:
+        - /url: https://www.wealthsimple.com/en-ca
+        - img "Wealthsimple Technologies" [ref=e7]
+    - listitem [ref=e8]:
+      - link "Back to Wealthsimple Technologies’s Job Listings" [ref=e9] [cursor=pointer]:
+        - /url: /wealthsimple?utm_source=linkedinpaid
+    - listitem
+  - generic [ref=e12]:
+    - heading "Software Development and Data Science Internships (Winter 2027)" [level=1] [ref=e14]
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - heading "Location" [level=2] [ref=e18]
+          - paragraph [ref=e19]: Toronto, Ontario
+        - generic [ref=e20]:
+          - heading "Employment Type" [level=2] [ref=e21]
+          - paragraph [ref=e22]: Intern
+        - generic [ref=e23]:
+          - heading "Location Type" [level=2] [ref=e24]
+          - paragraph [ref=e25]: Hybrid
+        - generic [ref=e26]:
+          - heading "Department" [level=2] [ref=e27]
+          - paragraph [ref=e28]:
+            - generic [ref=e29]: Data & Engineering
+        - generic [ref=e30]:
+          - heading "Deadline to Apply" [level=2] [ref=e31]
+          - paragraph [ref=e32]: September 18, 2026 at 11:59 PM EDT
+        - generic [ref=e33]:
+          - heading "Compensation" [level=2] [ref=e34]
+          - list [ref=e35]:
+            - listitem [ref=e36]:
+              - generic [ref=e37]: CA$74K – CA$90K
+          - generic [ref=e38]:
+            - paragraph [ref=e39]: "🤑 Base salary range: For this role, candidates located in Canada can expect a base salary range, described in the posting. Actual compensation is determined based on skills, experience, and role level. Exceptional candidates may be considered above the top of the range, and pay can increase quickly for those who make a big impact in the role."
+            - paragraph [ref=e40]: "🚀 Total compensation: In addition to base salary, permanent employees receive equity compensation. We use clear job levels and market-based salary bands to ensure compensation is fair and consistent across the company."
+      - generic [ref=e41]:
+        - tablist [ref=e42]:
+          - tab "Overview" [ref=e43] [cursor=pointer]
+          - tab "Application" [selected] [ref=e44] [cursor=pointer]
+        - tabpanel "Application" [ref=e46]:
+          - paragraph [ref=e54]: Fetching application form
+  - contentinfo [ref=e55]:
+    - link "Learn more about Ashby" [ref=e56] [cursor=pointer]:
+      - /url: https://www.ashbyhq.com
+      - generic [ref=e57]: Powered by
+      - img "Ashby" [ref=e58]
+    - paragraph [ref=e64]:
+      - link "Privacy Policy" [ref=e65] [cursor=pointer]:
+        - /url: https://www.ashbyhq.com/privacy
+      - link "Security" [ref=e66] [cursor=pointer]:
+        - /url: https://www.ashbyhq.com/security
+      - link "Vulnerability Disclosure" [ref=e67] [cursor=pointer]:
+        - /url: https://www.ashbyhq.com/disclosure
