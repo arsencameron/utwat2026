@@ -9,6 +9,34 @@ export { contextStore, type CandidateProfile, type QARecord } from "./db/context
 export { PlaywrightMcpClient, type PlaywrightMcpClientOptions } from "./agent/mcpClient.js";
 export { AgentLoop, type AgentRunOptions, type AgentRunResult, type HumanInterceptionHandler } from "./agent/agentLoop.js";
 
+// Steel cloud browser + MCP interception + CLI human-in-the-loop
+export {
+  SteelSessionManager,
+  logSessionViewer,
+  buildCdpEndpoint,
+  buildLiveViewUrl,
+  type SteelSession,
+  type SteelSessionOptions,
+} from "./steel/steelSession.js";
+export { redactSecrets, redactArgs, SENSITIVE_QUERY_PARAMS } from "./util/redact.js";
+export { resolveMcpLaunch, type McpLaunch, type McpLaunchOptions } from "./mcp/playwrightMcp.js";
+export {
+  GuardedMcpClient,
+  cliGuardPrompt,
+  type GuardedMcpClientOptions,
+  type GuardPrompt,
+  type GuardVerdict,
+  type InterceptionRecord,
+} from "./mcp/guardedMcpClient.js";
+export {
+  isGuardedAction,
+  describeToolCall,
+  buildDenialMessage,
+  DEFAULT_SUBMIT_KEYWORDS,
+  type GuardMatch,
+} from "./hitl/submitGuard.js";
+export { createHumanQuestionHandler, NO_ANSWER_SENTINEL } from "./hitl/humanQuestion.js";
+
 export interface RunJobAutofillOptions {
   mcpCommand?: string;
   mcpArgs?: string[];

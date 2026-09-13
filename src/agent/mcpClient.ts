@@ -4,6 +4,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { Tool as McpTool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type Anthropic from "@anthropic-ai/sdk";
+import { redactArgs, redactSecrets } from "../util/redact.js";
 
 export interface PlaywrightMcpClientOptions {
   serverUrl?: string;
@@ -56,10 +57,11 @@ export class PlaywrightMcpClient {
     const { serverUrl, command, args, env, clientName, clientVersion } = this.options;
 
     if (serverUrl) {
-      console.log(`[MCP] Connecting to SSE server at: ${serverUrl}`);
+      console.log(`[MCP] Connecting to SSE server at: ${redactSecrets(serverUrl)}`);
       this.transport = new SSEClientTransport(new URL(serverUrl));
     } else {
-      console.log(`[MCP] Connecting to stdio server: ${command} ${args?.join(" ")}`);
+      // Redacted: a Steel CDP endpoint carries a session token in the URL.
+      console.log(`[MCP] Connecting to stdio server: ${command} ${redactArgs(args || []).join(" ")}`);
       this.transport = new StdioClientTransport({
         command: command!,
         args: args || [],

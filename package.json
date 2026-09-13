@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "agent": "tsx src/index.ts",
+    "cli": "tsx src/cli/run.ts",
     "build": "tsc",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:e2e": "tsx tests/e2e/submitGuardFlow.ts"
   },
   "repository": {
     "type": "git",
